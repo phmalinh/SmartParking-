@@ -1,0 +1,12 @@
+# Python
+venv/
+.env/
+__pycache__/
+*.pyc
+
+# Virtual env
+parking_ai/venv/
+
+# IDE
+.vscode/
+.idea/
