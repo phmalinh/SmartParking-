@@ -15,12 +15,14 @@ use Intervention\Image\ImageManager;
 class ParkingService
 {
      private ParkingRepository $parkingRepository;
+     private ParkingHistoryService $historyService;
 
     // private FileCenterService $fileCenterService;
 
-    public function __construct(ParkingRepository $parkingRepository)
+    public function __construct(ParkingRepository $parkingRepository, ParkingHistoryService $historyService)
     {
         $this->parkingRepository = $parkingRepository;
+        $this->historyService = $historyService;
     }
 
     public function index()
@@ -59,11 +61,45 @@ class ParkingService
         }
 
         $plate = $response->json('plate') ?? '';
+        $plateImage = $response->json('plate_image');
         $allowed = $this->parkingRepository->isAllowedPlate($plate);
+        $vehicle = $this->parkingRepository->findByPlateNumber($plate);
+        $isInside = false;
+
+        // Kiểm tra xem xe có đang đậu trong bãi không
+        if ($allowed && $vehicle) {
+            $canEnter = $this->historyService->canVehicleEnter($vehicle->plate_number);
+            if (!$canEnter) {
+                // Xe đang đậu trong bãi, từ chối vào
+                $allowed = false;
+                $isInside = true;
+            }
+        }
+
+        // Ghi lịch sử tự động - chỉ ghi khi vào thành công
+        try {
+            if ($allowed && $vehicle) {
+                // Xe được phép vào
+                $this->historyService->recordEntry(
+                    $vehicle->plate_number,
+                    $vehicle->car_owner,
+                    'AI OCR scan - Entry'
+                );
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Failed to record AI OCR history: ' . $e->getMessage());
+            // Không ảnh hưởng đến kết quả chính
+        }
 
         return [
             'plate' => $plate,
-            'allowed' => $allowed
+            'allowed' => $allowed,
+            'plate_image' => $plateImage,
+            'reason' => $isInside ? 'Xe đang đậu trong bãi' : null,
+            'vehicle' => $vehicle ? [
+                'car_owner' => $vehicle->car_owner,
+                'plate_number' => $vehicle->plate_number
+            ] : null
         ];
     }
 

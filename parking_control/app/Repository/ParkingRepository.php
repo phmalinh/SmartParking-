@@ -24,9 +24,24 @@ class ParkingRepository extends Repository
     }
      public function isAllowedPlate(string $plate): bool
     {
-        return Parking::where('plate_number', $plate)
+        $cleanPlate = preg_replace('/[^A-Z0-9]/', '', strtoupper($plate));
+        return Parking::whereRaw(
+                "REPLACE(UPPER(plate_number), '-', '') = ?",
+                [$cleanPlate]
+            )
             ->where('action', 'Activate')
             ->exists();
+    }
+
+    public function findByPlateNumber(string $plate)
+    {
+        $cleanPlate = preg_replace('/[^A-Z0-9]/', '', strtoupper($plate));
+        return Parking::whereRaw(
+                "REPLACE(UPPER(plate_number), '-', '') = ?",
+                [$cleanPlate]
+            )
+            ->where('action', 'Activate')
+            ->first();
     }
 
     public function create(array $data)

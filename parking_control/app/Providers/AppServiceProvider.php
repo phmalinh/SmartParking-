@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Repository\ParkingRepository;
 use Illuminate\Support\ServiceProvider;
+use App\Repository\Contracts\UserRepositoryInterface;
+use App\Repository\Eloquent\UserRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,8 +15,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(
+        UserRepositoryInterface::class,
+        UserRepository::class,    
+       
+    );
+    $this->app->bind(
        // ParkingRepositoryInterface::class,
-        ParkingRepository::class
+        ParkingRepository::class,     
     );
     }
 
