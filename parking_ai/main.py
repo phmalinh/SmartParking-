@@ -175,30 +175,20 @@
 #     app.run(host="0.0.0.0", port=port, debug=False)
 import os
 import re
-import base64
-import cv2
-import numpy as np
+import requests
 from flask import Flask, request, jsonify
-
-# 🚀 Khởi tạo PaddleOCR siêu nhẹ
-from paddleocr import PaddleOCR
-# use_gpu=False để chạy bằng CPU, lang='en' tối ưu cho chữ và số bãi xe
-ocr = PaddleOCR(use_angle_cls=False, lang='en')
 
 app = Flask(__name__)
 
-DEBUG = True
-DEBUG_DIR = "/tmp/debug" if os.name != 'nt' else "debug"
-os.makedirs(DEBUG_DIR, exist_ok=True)
-
-
-def image_to_base64(img):
-    _, buffer = cv2.imencode('.jpg', img)
-    return base64.b64encode(buffer).decode('utf-8')
+# 🚀 Điền API Key miễn phí bạn vừa nhận được ở Bước 1 vào đây
+OCR_SPACE_API_KEY = "K85568556588957"  # <--- THAY BẰNG KEY CỦA BẠN
 
 
 def normalize_plate(text: str) -> str:
+    if not text:
+        return ""
     text = text.upper()
+    # Chỉ giữ lại chữ cái và chữ số
     text = re.sub(r"[^A-Z0-9]", "", text)
     return text
 
@@ -209,47 +199,45 @@ def predict():
     if file is None:
         return jsonify({"plate": "", "error": "Không có file"}), 400
 
-    # Đọc ảnh từ request gửi lên
-    img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
-    if img is None:
-        return jsonify({"plate": "", "error": "Ảnh không hợp lệ"}), 400
-
-    if DEBUG:
-        cv2.imwrite(f"{DEBUG_DIR}/input.jpg", img)
-
     try:
-        # 🚀 Gọi PaddleOCR quét toàn bộ ảnh để tìm cụm chữ biển số xe
-        result = ocr.ocr(img, cls=False)
+        # Đọc dữ liệu binary của file ảnh gửi lên từ Laravel
+        file_bytes = file.read()
         
-        plate_text = ""
-        # PaddleOCR trả về cấu trúc danh sách các vùng chữ tìm thấy
-        if result and result[0]:
-            for line in result[0]:
-                text_detected = line[1][0] # Chuỗi văn bản đọc được
-                confidence = line[1][1]    # Độ tự tin (%)
-                
-                # Làm sạch chữ thử xem có giống biển số không
-                clean_text = normalize_plate(text_detected)
-                
-                # Nếu chuỗi đọc được có độ dài từ 4 ký tự trở lên thì thu thập
-                if len(clean_text) >= 4:
-                    plate_text += clean_text
-
-        # Định dạng chuẩn lại biển số cuối cùng
-        final_plate = normalize_plate(plate_text)
-
-        response = {
-            "plate": final_plate, 
-            "plate_source": "paddleocr"
+        # Gửi request chất lượng cao tới cổng OCR Space Engine 2 (Tối ưu cho biển số và mã số)
+        payload = {
+            "apikey": OCR_SPACE_API_KEY,
+            "language": "eng",
+            "isOverlayRequired": False,
+            "OCREngine": "2",  # Engine 2 cực kỳ mạnh về nhận diện text ngắn, biển số xe
         }
         
-        if DEBUG:
-            response["plate_image"] = image_to_base64(img)
-
-        return jsonify(response)
+        files = {
+            "file": ("capture.jpg", file_bytes, "image/jpeg")
+        }
+        
+        response = requests.post(
+            "https://api.ocr.space/parse/image", 
+            data=payload, 
+            files=files,
+            timeout=25
+        )
+        
+        result_json = response.json()
+        plate_text = ""
+        
+        # Phân tích cú pháp chuỗi trả về từ API
+        if result_json.get("ParsedResults"):
+            parsed_text = result_json["ParsedResults"][0].get("ParsedText", "")
+            # Làm sạch chuỗi văn bản nhận diện được
+            plate_text = normalize_plate(parsed_text)
+            
+        return jsonify({
+            "plate": plate_text,
+            "plate_source": "cloud_ocr_api"
+        })
 
     except Exception as e:
-        print(f"❌ [OCR Error] Hệ thống gặp lỗi phân tích: {e}")
+        print(f"❌ [API OCR Error] Thất bại: {e}")
         return jsonify({"plate": "", "error": str(e)}), 500
 
 
