@@ -31,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Gọi trực tiếp Facade URL đã được use ở trên đầu file
-        if (config('app.env') === 'production' || env('APP_URL') !== 'http://localhost') {
+        if (config('app.env') === 'production' || isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
             URL::forceScheme('https');
         }
     }
