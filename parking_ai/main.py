@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pytesseract
 import easyocr
+reader = easyocr.Reader(['en'], gpu=False)
 
 try:
     from flask import Flask, request, jsonify
