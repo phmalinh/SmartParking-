@@ -183,7 +183,7 @@ from flask import Flask, request, jsonify
 # 🚀 Khởi tạo PaddleOCR siêu nhẹ
 from paddleocr import PaddleOCR
 # use_gpu=False để chạy bằng CPU, lang='en' tối ưu cho chữ và số bãi xe
-ocr = PaddleOCR(use_angle_cls=False, lang='en', use_gpu=False, show_log=False)
+ocr = PaddleOCR(use_angle_cls=False, lang='en')
 
 app = Flask(__name__)
 
