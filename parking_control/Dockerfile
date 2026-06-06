@@ -35,6 +35,8 @@ WORKDIR /var/www
 # Copy toàn bộ code dự án vào container
 COPY . .
 
+RUN rm -f .env
+
 # Copy phần Frontend đã được build từ Stage 1 vào thư mục public của Laravel
 COPY --from=frontend-builder /app/public /var/www/public
 
@@ -67,4 +69,4 @@ RUN echo 'server { \
 EXPOSE 80
 
 # Chạy tự động tạo bảng (migrate) trên PostgreSQL và bật server
-CMD php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
+CMD php artisan config:clear && php artisan cache:clear && php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
