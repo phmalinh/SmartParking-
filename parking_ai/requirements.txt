@@ -1,7 +1,6 @@
-Flask==3.0.3
+Flask==3.0.2
 gunicorn==21.2.0
-requests==2.31.0
 opencv-python-headless==4.9.0.80
 numpy==1.26.4
-pytesseract==0.3.10
-easyocr
+paddlepaddle==2.6.1
+paddleocr==2.7.3
