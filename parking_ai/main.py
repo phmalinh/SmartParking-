@@ -176,12 +176,14 @@
 import os
 import re
 import requests
+import cv2
+import numpy as np
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# 🚀 Điền API Key miễn phí bạn vừa nhận được ở Bước 1 vào đây
-OCR_SPACE_API_KEY = "K85568556588957"  # <--- THAY BẰNG KEY CỦA BẠN
+# 🚀 API Key OCR Space của bạn
+OCR_SPACE_API_KEY = "K85568556588957"
 
 
 def normalize_plate(text: str) -> str:
@@ -193,6 +195,41 @@ def normalize_plate(text: str) -> str:
     return text
 
 
+def detect_and_crop_plate(img):
+    """
+    Sử dụng thuật toán hình học OpenCV để tìm và cắt khung biển số xe (Tốn ít RAM)
+    """
+    try:
+        h_img, w_img, _ = img.shape
+
+        # 1. Chuyển ảnh về màu xám và làm mịn để giảm nhiễu
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # 2. Phát hiện các cạnh biên (Canny Edge Detection)
+        edged = cv2.Canny(blur, 50, 200)
+
+        # 3. Tìm các đường viền (Contours) trong ảnh
+        contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+        # 4. Quét qua các đường viền lớn nhất xem cái nào có tỷ lệ giống biển số xe
+        for c in contours[:10]:  # Xét top 10 vùng lớn nhất
+            x, y, w, h = cv2.boundingRect(c)
+            ratio = w / float(h)
+
+            # Biển số xe thường là hình chữ nhật nằm ngang (Tỷ lệ rộng/cao từ 2.0 đến 5.5)
+            if 2.0 < ratio < 5.5 and w > 0.15 * w_img and h > 0.05 * h_img:
+                # Cắt lấy vùng ảnh chứa biển số xe
+                cropped_plate = img[y:y+h, x:x+w]
+                print("🎯 [OpenCV] Đã tìm thấy và cắt vùng biển số thành công.")
+                return cropped_plate
+    except Exception as e:
+        print(f"⚠️ Không cắt được ảnh bằng OpenCV (Dùng ảnh gốc làm Fallback): {e}")
+        
+    return img  # Trả về ảnh gốc nếu không tìm thấy khung hình phù hợp
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     file = request.files.get("file")
@@ -200,21 +237,32 @@ def predict():
         return jsonify({"plate": "", "error": "Không có file"}), 400
 
     try:
-        # Đọc dữ liệu binary của file ảnh gửi lên từ Laravel
-        file_bytes = file.read()
+        # Đọc dữ liệu ảnh từ request gửi lên
+        img_bytes = file.read()
+        img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            return jsonify({"plate": "", "error": "Ảnh không hợp lệ"}), 400
+
+        # 🚀 BƯỚC CẮT ẢNH: Tự động định vị và cắt lấy mỗi cái biển số xe trước khi gửi đi
+        processed_img = detect_and_crop_plate(img)
+
+        # Chuyển đổi ảnh đã cắt thành dạng byte để gửi qua API HTTP
+        _, buffer = cv2.imencode('.jpg', processed_img)
+        cropped_bytes = buffer.tobytes()
         
-        # Gửi request chất lượng cao tới cổng OCR Space Engine 2 (Tối ưu cho biển số và mã số)
+        # Cấu hình tham số gửi tới OCR Space
         payload = {
             "apikey": OCR_SPACE_API_KEY,
             "language": "eng",
             "isOverlayRequired": False,
-            "OCREngine": "2",  # Engine 2 cực kỳ mạnh về nhận diện text ngắn, biển số xe
+            "OCREngine": "2",  # Engine 2 cực mạnh cho văn bản ngắn/biển số
         }
         
         files = {
-            "file": ("capture.jpg", file_bytes, "image/jpeg")
+            "file": ("cropped_plate.jpg", cropped_bytes, "image/jpeg")
         }
         
+        # Gửi vùng ảnh nhỏ đã cắt sắc nét qua Cloud OCR
         response = requests.post(
             "https://api.ocr.space/parse/image", 
             data=payload, 
@@ -225,15 +273,13 @@ def predict():
         result_json = response.json()
         plate_text = ""
         
-        # Phân tích cú pháp chuỗi trả về từ API
         if result_json.get("ParsedResults"):
             parsed_text = result_json["ParsedResults"][0].get("ParsedText", "")
-            # Làm sạch chuỗi văn bản nhận diện được
             plate_text = normalize_plate(parsed_text)
             
         return jsonify({
             "plate": plate_text,
-            "plate_source": "cloud_ocr_api"
+            "plate_source": "opencv_contour + cloud_ocr"
         })
 
     except Exception as e:
