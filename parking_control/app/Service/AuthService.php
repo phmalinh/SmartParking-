@@ -16,28 +16,51 @@ class AuthService
         $this->userRepo = $userRepo;
     }
 
-public function login(array $credentials): array
-{
-    // 1. Kiểm tra đăng nhập
-    if (!Auth::attempt($credentials)) {
-        throw ValidationException::withMessages([
-            'email' => ['Email hoặc mật khẩu không đúng'],
+    public function register(array $data): array
+    {
+        if ($this->userRepo->findByEmail($data['email'])) {
+            throw ValidationException::withMessages([
+                'email' => ['Email này đã được sử dụng.'],
+            ]);
+        }
+
+        $user = $this->userRepo->create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
         ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return [
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user,
+        ];
     }
 
-    // 2. Lấy đối tượng User (phải là Object, không phải ID)
-    /** @var \App\Models\User $user */
-    $user = Auth::user();
+    public function login(array $credentials): array
+    {
+        // 1. Kiểm tra đăng nhập
+        if (!Auth::attempt($credentials)) {
+            throw ValidationException::withMessages([
+                'email' => ['Email hoặc mật khẩu không đúng'],
+            ]);
+        }
 
-    // 3. Tạo token từ Object user
-    $token = $user->createToken('auth_token')->plainTextToken;
+        // 2. Lấy đối tượng User (phải là Object, không phải ID)
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-    return [
-        'access_token' => $token,
-        'token_type' => 'Bearer',
-        'user' => $user // Trả về cả object user để frontend dùng
-    ];
-}
+        // 3. Tạo token từ Object user
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return [
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user // Trả về cả object user để frontend dùng
+        ];
+    }
 
     public function logout(User $user): void
     {

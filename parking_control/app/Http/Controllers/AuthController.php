@@ -27,6 +27,19 @@ class AuthController extends Controller
         );
     }
 
+    public function register(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        return response()->json(
+            $this->authService->register($data)
+        );
+    }
+
     public function logout(Request $request)
     {
         $this->authService->logout($request->user());

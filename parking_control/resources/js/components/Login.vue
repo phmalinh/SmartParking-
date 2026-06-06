@@ -33,6 +33,11 @@
             <span v-else>Login</span>
           </button>
         </div>
+
+        <div class="text-center text-sm text-gray-600">
+          Bạn chưa có tài khoản?
+          <router-link to="/register" class="text-indigo-600 hover:text-indigo-800 font-semibold">Đăng ký ngay</router-link>
+        </div>
       </form>
     </div>
   </div>
