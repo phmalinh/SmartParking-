@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash; 
 
 class DatabaseSeeder extends Seeder
 {
@@ -21,11 +22,12 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
+
         if (User::where('email', 'admin@gmail.com')->count() == 0) {
             User::create([
                 'name' => 'Admin Parking',
                 'email' => 'admin@gmail.com',
-                'password' => Hash::make('12345678'), // Sử dụng Facade Hash đã import ở trên
+                'password' => Hash::make('12345678'), // Bây giờ hệ thống đã hiểu Hash là gì
             ]);
         }
     }
