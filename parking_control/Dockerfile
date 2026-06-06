@@ -69,4 +69,4 @@ RUN echo 'server { \
 EXPOSE 80
 
 # Chạy tự động tạo bảng (migrate) trên PostgreSQL và bật server
-CMD php artisan config:clear && php artisan cache:clear && php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
+CMD php artisan config:clear && php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
