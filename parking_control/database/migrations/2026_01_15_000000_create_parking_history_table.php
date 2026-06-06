@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('plate_number');
             $table->string('car_owner')->nullable();
-            $table->enum('action', ['Entry', 'Exit'])->comment('Entry: Xe vào, Exit: Xe ra');
+           // $table->enum('action', ['Entry', 'Exit'])->comment('Entry: Xe vào, Exit: Xe ra');
+            $table->enum('action', ['Entry', 'Exit']);
             $table->timestamp('action_time')->useCurrent();
             $table->string('notes')->nullable();
             $table->timestamps();

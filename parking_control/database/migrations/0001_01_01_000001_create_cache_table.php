@@ -11,16 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Schema::create('cache', function (Blueprint $table) {
+        //     $table->string('key')->primary();
+        //     $table->mediumText('value');
+        //     $table->integer('expiration');
+        // });
+
+        // Schema::create('cache_locks', function (Blueprint $table) {
+        //     $table->string('key')->primary();
+        //     $table->string('owner');
+        //     $table->integer('expiration');
+        // });
         Schema::create('cache', function (Blueprint $table) {
-            $table->string('key')->primary();
+            $table->string('key', 255)->primary(); // Giới hạn 255 ký tự để làm khóa chính an toàn trên Postgres
             $table->mediumText('value');
-            $table->integer('expiration');
+            $table->bigInteger('expiration');      // Đổi sang bigInteger để đồng bộ dữ liệu thời gian
         });
 
+        // 2. Bảng quản lý khóa Cache (Lock) - Tránh xung đột tiến trình
         Schema::create('cache_locks', function (Blueprint $table) {
-            $table->string('key')->primary();
+            $table->string('key', 255)->primary(); // Giới hạn 255 ký tự làm khóa chính
             $table->string('owner');
-            $table->integer('expiration');
+            $table->bigInteger('expiration');      // Đổi sang bigInteger để chạy mượt trên Postgres
         });
     }
 
