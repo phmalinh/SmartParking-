@@ -65,4 +65,5 @@ RUN echo 'server { \
 EXPOSE 80
 
 # Chạy Nginx và PHP-FPM song song
-CMD php-fpm -D && nginx -g "daemon off;"
+# Lệnh mới: Tự động chạy migrate tạo bảng rồi mới bật server
+CMD php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
