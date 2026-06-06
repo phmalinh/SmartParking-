@@ -205,7 +205,7 @@
                       ? 'bg-yellow-700/30 border border-yellow-500'
                       : 'bg-slate-900 border border-slate-700'"
               >
-                <span v-if="exitStatus === 'success'">{{ t('status.entry_allowed') }}</span>
+                <span v-if="exitStatus === 'success'">{{ t('status.exit_allowed') }}</span>
                 <span v-else-if="exitStatus === 'denied'">{{ t('status.entry_denied') }}</span>
                 <span v-else-if="exitStatus === 'unknown'">{{ t('status.not_checked') }}</span>
                 <span v-else>{{ t('status.not_checked') }}</span>

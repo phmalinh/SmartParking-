@@ -23,6 +23,7 @@ const translations = {
     'buttons.select_image': 'Chọn ảnh',
 
     'status.entry_allowed': '✔ Cho vào',
+    'status.exit_allowed': '✔ Cho ra',
     'status.entry_denied': '❌ Từ chối',
     'status.not_checked': '⏳ Chưa kiểm tra',
 
@@ -97,6 +98,7 @@ const translations = {
     'buttons.select_image': 'Select Image',
 
     'status.entry_allowed': '✔ Entry Allowed',
+    'status.exit_allowed': '✔ Exit Allowed',
     'status.entry_denied': '❌ Entry Denied',
     'status.not_checked': '⏳ Not Checked',
 
@@ -174,6 +176,7 @@ const translations = {
     'buttons.select_image': '選擇圖片',
 
     'status.entry_allowed': '✔ 允許進入',
+    'status.exit_allowed': '✔ 允許離開',
     'status.entry_denied': '❌ 拒絕進入',
     'status.not_checked': '⏳ 未檢查',
 
