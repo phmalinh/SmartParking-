@@ -14,18 +14,11 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-    //    User::create([
-    //     'name' => 'Admin',
-    //     'email' => 'admin@gmail.com',
-    //     'password' => Hash::make('123456'),
-    // ]);
-        if (\App\Models\User::where('email', 'admin@gmail.com')->count() == 0) {
-            \App\Models\User::create([
-                'name' => 'Admin Parking',
-                'email' => 'admin@gmail.com',
-                'password' => \Illuminate\Support\Facades\Hash::make('12345678'),
-            ]);
-        }
+       User::create([
+        'name' => 'Admin',
+        'email' => 'admin@gmail.com',
+        'password' => Hash::make('123456'),
+    ]);
 
     }
 }

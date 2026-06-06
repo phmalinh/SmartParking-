@@ -17,9 +17,15 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+        User::create([
+            'name' => 'Admin Parking',
+            'email' => 'admin@gmail.com', // Bạn có thể đổi email theo ý muốn
+            'password' => Hash::make('12345678'), // Mật khẩu đăng nhập
+            // 'role' => 'admin', // Bỏ comment dòng này nếu bảng users của bạn có phân quyền role
         ]);
     }
 }
