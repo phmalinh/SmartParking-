@@ -10,7 +10,7 @@ RUN npm run build
 # --- Stage 2: Chạy Backend Laravel với PHP & Nginx ---
 FROM php:8.2-fpm-alpine
 
-# Cài đặt các extension cần thiết cho Laravel & MySQL
+# Cài đặt các extension cần thiết cho Laravel, MySQL & PostgreSQL
 RUN apk add --no-cache \
     nginx \
     supervisor \
@@ -21,9 +21,11 @@ RUN apk add --no-cache \
     unzip \
     git \
     oniguruma-dev \
-    libzip-dev
+    libzip-dev \
+    postgresql-dev  # <--- Bổ sung thư viện phát triển PostgreSQL cho Alpine
 
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+# Cài đặt các driver PHP mở rộng (Đã thêm pdo_pgsql và pgsql)
+RUN docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip
 
 # Cài đặt Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -64,5 +66,5 @@ RUN echo 'server { \
 
 EXPOSE 80
 
-# Chạy Nginx và PHP-FPM song song
+# Chạy tự động tạo bảng (migrate) trên PostgreSQL và bật server
 CMD php artisan migrate --force && php-fpm -D && nginx -g "daemon off;"
