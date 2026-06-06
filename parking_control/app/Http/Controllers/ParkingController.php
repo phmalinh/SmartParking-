@@ -213,13 +213,20 @@ class ParkingController extends Controller
                 return response()->json(['error' => 'Không có ảnh'], 400);
             }
 
-            $response = Http::timeout(30)
-                ->attach(
-                    'file',
-                    file_get_contents($request->file('file')),
-                    'capture.jpg'
-                )
-                ->post('http://127.0.0.1:8001/predict');
+            // $response = Http::timeout(30)
+            //     ->attach(
+            //         'file',
+            //         file_get_contents($request->file('file')),
+            //         'capture.jpg'
+            //     )
+            //     ->post('http://127.0.0.1:8001/predict');
+            $response = Http::timeout(60) // Tăng timeout lên 60s phòng trường hợp Render Free bị ngủ đông (Sleep)
+            ->attach(
+                'file',
+                file_get_contents($request->file('file')),
+                'capture.jpg'
+            )
+            ->post('https://smartparking-ai.onrender.com/predict');
 
             if ($response->failed()) {
                 return response()->json(['error' => 'OCR service failed'], 500);
