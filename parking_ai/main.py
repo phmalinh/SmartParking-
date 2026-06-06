@@ -182,111 +182,152 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# 🚀 API Key OCR Space của bạn
+# 🚀 API Key OCR Space của bạn (Giữ nguyên)
 OCR_SPACE_API_KEY = "K85568556588957"
 
 
 def normalize_plate(text: str) -> str:
+    """Làm sạch chuỗi nhận diện: viết hoa và chỉ giữ lại A-Z, 0-9."""
     if not text:
         return ""
     text = text.upper()
-    # Chỉ giữ lại chữ cái và chữ số
     text = re.sub(r"[^A-Z0-9]", "", text)
     return text
 
 
 def detect_and_crop_plate(img):
     """
-    Sử dụng thuật toán hình học OpenCV để tìm và cắt khung biển số xe (Tốn ít RAM)
+    TỐI ƯU: Sử dụng OpenCV để tìm chính xác vùng biển số xe và cắt bỏ nhiễu.
     """
     try:
         h_img, w_img, _ = img.shape
 
-        # 1. Chuyển ảnh về màu xám và làm mịn để giảm nhiễu
+        # 1. Chuyển đổi màu và làm mịn ảnh để giảm nhiễu tốt hơn
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        blur = cv2.bilateralFilter(gray, 11, 17, 17) # Giữ cạnh tốt hơn Gaussian
         
-        # 2. Phát hiện các cạnh biên (Canny Edge Detection)
-        edged = cv2.Canny(blur, 50, 200)
+        # 2. Phát hiện các cạnh biên chuẩn cho vật thể hình học
+        edged = cv2.Canny(blur, 30, 200)
 
-        # 3. Tìm các đường viền (Contours) trong ảnh
-        contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 3. Tìm và phân tích các đường viền
+        contours, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-        # 4. Quét qua các đường viền lớn nhất xem cái nào có tỷ lệ giống biển số xe
-        for c in contours[:10]:  # Xét top 10 vùng lớn nhất
-            x, y, w, h = cv2.boundingRect(c)
-            ratio = w / float(h)
+        print(f"📊 [OpenCV] Đã tìm thấy {len(contours)} đường viền.")
 
-            # Biển số xe thường là hình chữ nhật nằm ngang (Tỷ lệ rộng/cao từ 2.0 đến 5.5)
-            if 2.0 < ratio < 5.5 and w > 0.15 * w_img and h > 0.05 * h_img:
-                # Cắt lấy vùng ảnh chứa biển số xe
-                cropped_plate = img[y:y+h, x:x+w]
-                print("🎯 [OpenCV] Đã tìm thấy và cắt vùng biển số thành công.")
-                return cropped_plate
+        # 4. Tìm đường viền có hình dạng chữ nhật giống biển số nhất
+        best_plate_contour = None
+        for c in contours[:15]: # Xét top 15 đường viền lớn nhất
+            # Phân tích độ thẳng của cạnh
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+            
+            # Nếu đường viền có 4 cạnh (hoặc 5-6 cạnh cho biển số mờ)
+            if 4 <= len(approx) <= 6:
+                x, y, w, h = cv2.boundingRect(approx)
+                ratio = w / float(h)
+                area = w * h
+                
+                # SIẾT CHẶT TỶ LỆ HÌNH HỌC CỦA BIỂN SỐ XE
+                # Tỷ lệ rộng/cao điển hình: 2.0 - 5.5
+                if 2.2 < ratio < 5.0:
+                    # Kích thước phải đủ lớn nhưng không được chiếm quá 80% ảnh
+                    if area > 0.03 * (w_img * h_img) and w < 0.8 * w_img:
+                        best_plate_contour = approx
+                        break # Đã tìm thấy, dừng quét
+
+        # 5. Nếu tìm thấy, thực hiện cắt và trả về
+        if best_plate_contour is not None:
+            x, y, w, h = cv2.boundingRect(best_plate_contour)
+            
+            # Thêm một chút lề để OCR đọc tốt hơn (10 pixels)
+            pad = 10
+            x1 = max(0, x - pad)
+            y1 = max(0, y - pad)
+            x2 = min(w_img, x + w + pad)
+            y2 = min(h_img, y + h + pad)
+            
+            cropped_plate = img[y1:y2, x1:x2]
+            print("🎯 [OpenCV] Đã tìm thấy và cắt chính xác biển số xe.")
+            return cropped_plate
+            
+        print("⚠️ [OpenCV] Không tìm thấy biển số phù hợp (Dùng ảnh gốc).")
+
     except Exception as e:
-        print(f"⚠️ Không cắt được ảnh bằng OpenCV (Dùng ảnh gốc làm Fallback): {e}")
+        print(f"❌ [OpenCV Error] Không cắt được ảnh: {e}")
         
-    return img  # Trả về ảnh gốc nếu không tìm thấy khung hình phù hợp
+    # Nếu không tìm thấy hoặc lỗi, gửi ảnh gốc đi làm fallback
+    return img
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    API Nhận diện biển số xe: Cắt ảnh nội bộ -> Gọi Cloud OCR -> Trả về text chuẩn.
+    """
     file = request.files.get("file")
     if file is None:
         return jsonify({"plate": "", "error": "Không có file"}), 400
 
     try:
-        # Đọc dữ liệu ảnh từ request gửi lên
+        # Đọc dữ liệu ảnh từ request
         img_bytes = file.read()
         img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
         if img is None:
             return jsonify({"plate": "", "error": "Ảnh không hợp lệ"}), 400
 
-        # 🚀 BƯỚC CẮT ẢNH: Tự động định vị và cắt lấy mỗi cái biển số xe trước khi gửi đi
+        # 🚀 BƯỚC CẮT ẢNH: Tự động tìm và cắt vùng chứa biển số
+        # Đây là bước quan trọng nhất để sửa lỗi đọc nhầm chữ rác
         processed_img = detect_and_crop_plate(img)
 
-        # Chuyển đổi ảnh đã cắt thành dạng byte để gửi qua API HTTP
+        # Chuyển đổi ảnh đã cắt về dạng byte để gửi HTTP
         _, buffer = cv2.imencode('.jpg', processed_img)
         cropped_bytes = buffer.tobytes()
         
-        # Cấu hình tham số gửi tới OCR Space
+        # Cấu hình tham số gửi tới API OCR Space
         payload = {
             "apikey": OCR_SPACE_API_KEY,
-            "language": "eng",
+            "language": "eng", # Sử dụng tiếng Anh
             "isOverlayRequired": False,
-            "OCREngine": "2",  # Engine 2 cực mạnh cho văn bản ngắn/biển số
+            "OCREngine": "2", # Engine 2 tối ưu cho văn bản ngắn, biển số
+            "scale": True,    # Tự động phóng to ảnh nhỏ để đọc tốt hơn
         }
         
         files = {
             "file": ("cropped_plate.jpg", cropped_bytes, "image/jpeg")
         }
         
-        # Gửi vùng ảnh nhỏ đã cắt sắc nét qua Cloud OCR
+        # Gửi request lên đám mây (Cloud)
         response = requests.post(
             "https://api.ocr.space/parse/image", 
             data=payload, 
             files=files,
-            timeout=25
+            timeout=25 # Đặt timeout phòng trường hợp mạng chậm
         )
         
         result_json = response.json()
         plate_text = ""
         
         if result_json.get("ParsedResults"):
+            # Lấy chuỗi văn bản đã nhận diện
             parsed_text = result_json["ParsedResults"][0].get("ParsedText", "")
+            # Làm sạch chuỗi
             plate_text = normalize_plate(parsed_text)
             
         return jsonify({
             "plate": plate_text,
-            "plate_source": "opencv_contour + cloud_ocr"
+            "plate_source": "opencv_contours + cloud_ocr_api"
         })
 
+    except requests.exceptions.Timeout:
+        return jsonify({"plate": "", "error": "Lỗi kết nối API OCR"}), 504
     except Exception as e:
-        print(f"❌ [API OCR Error] Thất bại: {e}")
+        print(f"❌ [API OCR Error] Hệ thống gặp lỗi: {e}")
         return jsonify({"plate": "", "error": str(e)}), 500
 
 
+# Render yêu cầu lắng nghe cổng do hệ thống cấp
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
+    # Đặt debug=False trên môi trường Render
     app.run(host="0.0.0.0", port=port, debug=False)
