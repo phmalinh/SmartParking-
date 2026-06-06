@@ -21,11 +21,12 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
-        User::create([
-            'name' => 'Admin Parking',
-            'email' => 'admin@gmail.com', // Bạn có thể đổi email theo ý muốn
-            'password' => Hash::make('12345678'), // Mật khẩu đăng nhập
-            // 'role' => 'admin', // Bỏ comment dòng này nếu bảng users của bạn có phân quyền role
-        ]);
+        if (User::where('email', 'admin@gmail.com')->count() == 0) {
+            User::create([
+                'name' => 'Admin Parking',
+                'email' => 'admin@gmail.com',
+                'password' => Hash::make('12345678'), // Sử dụng Facade Hash đã import ở trên
+            ]);
+        }
     }
 }
